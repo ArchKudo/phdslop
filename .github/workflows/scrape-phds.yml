@@ -48,6 +48,6 @@ jobs:
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
-          git add data/phd-listings.csv logs/scrape-*.log
+          git add data/phd-listings.csv
           git diff --staged --quiet || git commit -m "Update PhD listings - $(date +'%Y-%m-%d %H:%M:%S UTC')"
           git push
