@@ -1,0 +1,50 @@
+name: Scrape PhD Listings
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - main
+    paths:
+      - 'scraper.js'
+      - '.github/workflows/scrape-phds.yml'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run scraper
+        run: npm start
+        env:
+          NODE_ENV: production
+          HEADLESS: false
+      
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add data/phd-listings.csv logs/scrape-*.log
+          git diff --staged --quiet || git commit -m "Update PhD listings - $(date +'%Y-%m-%d %H:%M:%S UTC')"
+          git push

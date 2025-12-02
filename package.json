@@ -1,0 +1,27 @@
+{
+  "name": "phd-listings-scraper",
+  "version": "1.0.0",
+  "description": "Automated PhD listings scraper with weekly updates via GitHub Actions",
+  "type": "module",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "start:visible": "HEADLESS=false node scraper.js",
+    "scrape": "node scraper.js"
+  },
+  "keywords": [
+    "phd",
+    "scraper",
+    "automation",
+    "bioinformatics",
+    "github-actions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

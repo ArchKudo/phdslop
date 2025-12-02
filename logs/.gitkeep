@@ -1,0 +1,17 @@
+# Logs Directory
+
+This directory contains verbose logs from scraper runs.
+
+## Log Files
+
+Log files are named: `scrape-YYYY-MM-DDTHH-MM-SS-sssZ.log`
+
+Each log contains:
+- Timestamp for every operation
+- HTTP request/response details
+- Parsing results
+- Filtering and sorting statistics
+- Error messages with full stack traces
+- Final summary of the scrape
+
+Logs are automatically committed to the repository by the GitHub Action.
