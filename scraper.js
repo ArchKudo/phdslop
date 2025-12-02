@@ -12,7 +12,7 @@ const MAX_PAGES = 16;
 const RETRY_ATTEMPTS = 1;
 const RETRY_DELAY = 2000;
 const PAGE_TIMEOUT = 30000;
-const HEADLESS = process.env.HEADLESS !== 'false'; // Set HEADLESS=false to show browser
+const HEADLESS = process.env.HEADLESS === 'true'; // Defaults to visible browser (non-headless)
 
 // Logger
 class Logger {

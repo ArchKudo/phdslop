@@ -35,3 +35,6 @@ csv += collected
 )
 .join("\n");
 ```
+
+License
+MIT Slop license
