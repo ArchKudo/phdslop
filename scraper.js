@@ -42,7 +42,7 @@ class Logger {
 
   async save() {
     try {
-      const content = this.logs.map(entry => 
+      const content = this.logs.map(entry =>
         `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}${entry.data ? '\n' + JSON.stringify(entry.data, null, 2) : ''}`
       ).join('\n\n');
       await fs.writeFile(this.logFile, content, 'utf-8');
@@ -102,7 +102,7 @@ class PhDScraper {
         '--disable-blink-features=AutomationControlled'
       ]
     });
-    
+
     this.context = await this.browser.newContext({
       userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       viewport: { width: 1920, height: 1080 },
@@ -119,24 +119,24 @@ class PhDScraper {
         'Sec-Fetch-User': '?1'
       }
     });
-    
+
     // Create a single page and keep it open
     this.page = await this.context.newPage();
-    
+
     // Hide automation indicators
     await this.page.addInitScript(() => {
       Object.defineProperty(navigator, 'webdriver', {
         get: () => false,
       });
-      
+
       // Remove automation flags
       delete navigator.__proto__.webdriver;
-      
+
       // Mock chrome object
       window.chrome = {
         runtime: {},
       };
-      
+
       // Mock permissions
       const originalQuery = window.navigator.permissions.query;
       window.navigator.permissions.query = (parameters) => (
@@ -145,7 +145,7 @@ class PhDScraper {
           originalQuery(parameters)
       );
     });
-    
+
     this.logger.info('Browser launched successfully');
   }
 
@@ -164,11 +164,11 @@ class PhDScraper {
     try {
       const url = BASE_URL + pageNumber;
       this.logger.info(`Navigating to page ${pageNumber}: ${url}`);
-      
+
       // Navigate using the persistent page
-      const response = await this.page.goto(url, { 
+      const response = await this.page.goto(url, {
         waitUntil: 'domcontentloaded',
-        timeout: PAGE_TIMEOUT 
+        timeout: PAGE_TIMEOUT
       });
 
       if (!response || !response.ok()) {
@@ -177,23 +177,23 @@ class PhDScraper {
 
       // Check for Cloudflare challenge
       const isChallenged = await this.page.evaluate(() => {
-        return document.title.includes('Just a moment') || 
+        return document.title.includes('Just a moment') ||
                document.body.textContent.includes('Checking your browser') ||
                document.querySelector('#challenge-running') !== null;
       });
 
       if (isChallenged) {
         this.logger.info('Cloudflare challenge detected, waiting for completion...');
-        
+
         // Wait for challenge to complete (up to 30 seconds)
         await this.page.waitForFunction(() => {
-          return !document.title.includes('Just a moment') && 
+          return !document.title.includes('Just a moment') &&
                  !document.body.textContent.includes('Checking your browser') &&
                  document.querySelector('#challenge-running') === null;
         }, { timeout: 30000 }).catch(() => {
           this.logger.warn('Cloudflare challenge timeout, continuing anyway...');
         });
-        
+
         this.logger.info('Cloudflare challenge passed');
         await this.delay(2000); // Extra delay after challenge
       }
@@ -217,15 +217,15 @@ class PhDScraper {
       });
 
       this.logger.info(`Found ${listings.length} listing blocks on page ${pageNumber}`);
-      this.logger.success(`Page ${pageNumber} scraped successfully`, { 
-        listingsFound: listings.length 
+      this.logger.success(`Page ${pageNumber} scraped successfully`, {
+        listingsFound: listings.length
       });
-      
+
       return listings;
     } catch (error) {
-      this.logger.error(`Failed to scrape page ${pageNumber}`, { 
+      this.logger.error(`Failed to scrape page ${pageNumber}`, {
         error: error.message,
-        stack: error.stack 
+        stack: error.stack
       });
       return [];
     }
@@ -250,7 +250,7 @@ class PhDScraper {
 
   filterAndSort(listings) {
     this.logger.info(`Total listings before filtering: ${listings.length}`);
-    
+
     const filtered = listings.filter(listing => {
       const hasEmpty = this.hasEmptyFields(listing);
       if (hasEmpty) {
@@ -282,51 +282,75 @@ class PhDScraper {
       const url = BASE_URL + pageNumber;
       const html = await this.fetchWithRetry(url);
       const listings = await this.extractListings(html);
-      
-      this.logger.success(`Page ${pageNumber} scraped successfully`, { 
-        listingsFound: listings.length 
+
+      this.logger.success(`Page ${pageNumber} scraped successfully`, {
+        listingsFound: listings.length
       });
-      
+
       return listings;
     } catch (error) {
-      this.logger.error(`Failed to scrape page ${pageNumber}`, { 
+      this.logger.error(`Failed to scrape page ${pageNumber}`, {
         error: error.message,
-        stack: error.stack 
+        stack: error.stack
       });
       return [];
     }
   }
 
   async scrapeAll() {
-    this.logger.info(`Starting scrape of ${MAX_PAGES} pages`);
+    this.logger.info(`Starting scrape`);
     this.logger.info(`Base URL: ${BASE_URL}`);
-    
+
     const startTime = Date.now();
 
     try {
       await this.initialize();
-      
-      for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+
+      // Get the last page number dynamically
+      this.logger.info('Fetching last page number...');
+      const url = BASE_URL + '1';
+      await this.page.goto(url, {
+        waitUntil: 'domcontentloaded',
+        timeout: PAGE_TIMEOUT
+      });
+
+      // Wait for pagination to load
+      await this.page.waitForSelector('li.page-item:last-child', { timeout: 10000 }).catch(() => {
+        this.logger.warn('Timeout waiting for pagination, using default MAX_PAGES');
+      });
+
+      const maxPages = await this.page.evaluate(() => {
+        const lastPageElement = document.querySelector('li.page-item:last-child');
+        const text = lastPageElement ? lastPageElement.innerText : null;
+        return text ? parseInt(text.trim(), 10) : null;
+      });
+
+      const pagesToScrape = maxPages || MAX_PAGES;
+      this.logger.info(`Will scrape ${pagesToScrape} pages (detected: ${maxPages}, fallback: ${MAX_PAGES})`);
+
+      await this.delay(2000);
+
+      for (let pageNum = 1; pageNum <= pagesToScrape; pageNum++) {
         const listings = await this.scrapePageInBrowser(pageNum);
         this.collected.push(...listings);
-        
-        if (pageNum < MAX_PAGES) {
+
+        if (pageNum < pagesToScrape) {
           await this.delay(2000); // Longer delay between pages
         }
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      this.logger.success(`Scraping completed in ${elapsed}s`, { 
+      this.logger.success(`Scraping completed in ${elapsed}s`, {
         totalListings: this.collected.length,
-        pages: MAX_PAGES
+        pages: pagesToScrape
       });
 
       this.collected = this.filterAndSort(this.collected);
       return this.collected;
     } catch (error) {
-      this.logger.error('Scraping failed', { 
+      this.logger.error('Scraping failed', {
         error: error.message,
-        stack: error.stack 
+        stack: error.stack
       });
       throw error;
     } finally {
@@ -338,10 +362,10 @@ class PhDScraper {
 // Main
 async function main() {
   const logger = new Logger();
-  
+
   try {
     await logger.init();
-    
+
     logger.info('=== PhD Listings Scraper Started ===');
     logger.info(`Timestamp: ${new Date().toISOString()}`);
     logger.info(`Node version: ${process.version}`);
@@ -363,10 +387,10 @@ async function main() {
 
     const dataDir = path.join(__dirname, 'data');
     await fs.mkdir(dataDir, { recursive: true });
-    
+
     const csvPath = path.join(dataDir, 'phd-listings.csv');
     await fs.writeFile(csvPath, csv, 'utf-8');
-    
+
     logger.success(`CSV saved to: ${csvPath}`);
     logger.info('Sample of listings (first 5):', {
       sample: listings.slice(0, 5)
@@ -381,7 +405,7 @@ async function main() {
       message: error.message,
       stack: error.stack
     });
-    
+
     await logger.save();
     process.exit(1);
   }
